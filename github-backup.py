@@ -70,11 +70,11 @@ def conf_load(conf, *args, default=None):
 def update_repos(repos, repopath):
     for name, repo in repos.items():
         print("Updating {}...".format(name))
-        g_repo = git.Repo(os.path.join(repopath, name))
+        g_repo = git.Repo(os.path.join(repopath, name, ''))
         if repo['clone_url'] != g_repo.remotes.origin.url:
             print("Repo url is incorrect, altering.")
             g_repo.remotes.origin.set_url(repo['clone_url'], g_repo.remotes.origin.url)
-        g_repo.remotes.origin.pull()
+        g_repo.remotes.origin.fetch()
 
 
 def clone_repo(repo, repopath):
@@ -132,7 +132,7 @@ def main():
                         break
                 if choice == "A":
                     print("Adding {} to the list of repos.".format(repo['name']))
-                    conf_repos[repo['name']] = repo
+                    conf_repos[repo['name']] = {'clone_url': repo['clone_url']}
                     clone_repo(repo, repopath)
                 elif choice == "E":
                     print("Adding {} to the exclusion list.".format(repo['name']))
