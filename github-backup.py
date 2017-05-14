@@ -2,7 +2,6 @@
 
 import argparse
 import itertools
-from pprint import pprint
 import os
 import sys
 
@@ -16,7 +15,8 @@ DEFAULT_CONF_BODY = """
 general:
 {token}
   repopath: "{repopath}"
-  unknown_repo_warning: 5
+# Number of unknown repos required to prompt a warning in cron mode. (Default: 5, set to 0 to disable)
+# unknown_repo_warning: 5
 # Only look for repos owned by the authed user (Default: true)
 # only_personal: false
 repos: {{}}
@@ -49,9 +49,21 @@ def paginate(path, per_page=30, **kwargs):
 
 
 def load_repos(ghub, only_personal, exclude):
-    repos = paginate(ghub.user.repos.get)
-    _, me = ghub.user.get()
-    pprint([repo['name'] for repo in repos if repo['owner']['id'] == me['id'] and not repo['fork']])
+    if only_personal:
+        repos = paginate(ghub.user.repos.get, affiliation="owner")
+    else:
+        repos = paginate(ghub.user.repos.get)
+    return {repo['name']: repo for repo in repos if repo['name'] not in exclude}
+
+
+def conf_load(conf, *args, default=None):
+    cur = conf
+    for step in args:
+        if step in cur:
+            cur = cur[step]
+        else:
+            return default
+    return cur
 
 
 def gather_args():
@@ -74,29 +86,26 @@ def main():
 
         if args.token != "":
             auth = args.token
-        elif 'general' in conf and 'token' in conf['general']:
-            auth = conf['general']['token']
         else:
-            print("Error: Must either specify auth token on command line or in config.")
-            sys.exit(1)
+            auth = conf_load(conf, 'general', 'token')
+            if auth is None:
+                print("Error: Must either specify auth token on command line or in config.")
+                sys.exit(1)
         ghub = GitHub(token=auth)
 
-        if 'general' in conf and 'only_personal' in conf['general']:
-            only_personal = conf['general']['only_personal']
-        else:
-            only_personal = True
-
-        if 'exclude' in conf:
-            exclude = conf['exclude']
-        else:
-            exclude = []
-
-        if 'repos' in conf:
-            conf_repos = conf['repos']
-        else:
-            conf_repos = []
-
+        only_personal = conf_load(conf, 'general', 'only_personal', default=True)
+        unknown_repo_warning = conf_load(conf, 'general', 'unknown_repo_warning', default=5)
+        exclude = conf_load(conf, 'exclude', default=[])
+        conf_repos = conf_load(conf, 'repos', default=[])
         ghub_repos = load_repos(ghub, only_personal, exclude)
+
+        unknown = [repo for name, repo in ghub_repos.items() if name not in conf_repos]
+
+        if args.cron:
+            if 0 < unknown_repo_warning <= len(unknown):
+                print("Error: There are {} unknown repos on github. "
+                      "This is more than your limit of {}.".format(unknown, unknown_repo_warning))
+                sys.exit(2)
 
 
 if __name__ == "__main__":
