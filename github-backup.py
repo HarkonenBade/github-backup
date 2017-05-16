@@ -155,8 +155,8 @@ def main():
 
     if args.interactive:
         new_repos, new_exclude = check_unknown(unknown, repopath)
-        conf['repos'] += new_repos
-        conf['exclude'] += exclude
+        conf['repos'].update(new_repos)
+        conf['exclude'].update(exclude)
         with open(args.conf, "w") as conf_file:
             yaml.safe_dump(conf, conf_file)
 
