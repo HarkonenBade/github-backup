@@ -15,11 +15,15 @@ DEFAULT_CONF_PATH = "./github-backup.yml"
 DEFAULT_CONF_BODY = """
 general:
   repopath: "{repopath}"
+  # Github Personal Access Token
+  # Created at: https://github.com/settings/tokens
+  # Must have the 'repo' scope to access private as well as public repos
 {token}
-# Number of unknown repos required to prompt a warning in non-interactive mode. (Default: 5, set to 0 to disable)
-# unknown_repo_warning: 5
-# Only look for repos owned by the authed user (Default: true)
-# only_personal: false
+  # Number of unknown repos required to prompt a warning in
+  # non-interactive mode. (Default: 5, set to 0 to disable)
+  unknown_repo_warning: 5
+  # Only look for repos owned by the authed user (Default: true)
+  only_personal: true
 repos: {{}}
 exclude: []"""
 
