@@ -62,7 +62,9 @@ def load_repos(ghub, only_personal, exclude):
         repos = paginate(ghub.user.repos.get, affiliation="owner")
     else:
         repos = paginate(ghub.user.repos.get)
-    return {repo['name']: repo for repo in repos if repo['name'] not in exclude}
+    return {repo['name']: repo
+            for repo in repos
+            if repo['name'] not in exclude}
 
 
 def conf_load(conf, *args, default=None):
@@ -81,17 +83,22 @@ def update_repos(repos, repopath):
         g_repo = git.Repo(os.path.join(repopath, name, ''))
         if repo['clone_url'] != g_repo.remotes.origin.url:
             sprint("Repo url is incorrect, altering.")
-            g_repo.remotes.origin.set_url(repo['clone_url'], g_repo.remotes.origin.url)
+            g_repo.remotes.origin.set_url(repo['clone_url'],
+                                          g_repo.remotes.origin.url)
         g_repo.remotes.origin.fetch()
 
 
 def clone_repo(repo, repopath):
     sprint("Cloning repo {} from {}", repo['name'], repo['clone_url'])
-    git.Repo.clone_from(repo['clone_url'], os.path.join(repopath, repo['name']), mirror=True)
+    git.Repo.clone_from(repo['clone_url'],
+                        os.path.join(repopath, repo['name']),
+                        mirror=True)
 
 
 def check_unknown(unknown_repos):
-    sprint("{} unknown repos found while checking github, please classify them:", len(unknown_repos))
+    sprint("{} unknown repos found while checking github, "
+           "please classify them:",
+           len(unknown_repos))
     new_repos = {}
     new_exclude = []
     for repo in unknown_repos:
@@ -142,7 +149,8 @@ def main():
     else:
         auth = conf_load(conf, 'general', 'token')
         if auth is None:
-            sprint("Error: Must either specify auth token on command line or in config.")
+            sprint("Error: Must either specify auth token "
+                   "on command line or in config.")
             sys.exit(1)
     ghub = GitHub(token=auth)
 
@@ -154,13 +162,19 @@ def main():
     if not os.path.exists(repopath):
         os.mkdir(repopath)
 
-    only_personal = conf_load(conf, 'general', 'only_personal', default=True)
-    unknown_repo_warning = conf_load(conf, 'general', 'unknown_repo_warning', default=5)
+    only_personal = conf_load(conf,
+                              'general', 'only_personal',
+                              default=True)
+    unknown_repo_warning = conf_load(conf,
+                                     'general', 'unknown_repo_warning',
+                                     default=5)
     exclude = conf_load(conf, 'exclude', default=[])
     conf_repos = conf_load(conf, 'repos', default={})
     ghub_repos = load_repos(ghub, only_personal, exclude)
 
-    unknown = [repo for name, repo in ghub_repos.items() if name not in conf_repos]
+    unknown = [repo
+               for name, repo in ghub_repos.items()
+               if name not in conf_repos]
 
     if args.interactive:
         new_repos, new_exclude = check_unknown(unknown)
