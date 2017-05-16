@@ -86,27 +86,32 @@ def clone_repo(repo, repopath):
     git.Repo.clone_from(repo['clone_url'], os.path.join(repopath, repo['name']), mirror=True)
 
 
-def check_unknown(unknown_repos, repopath):
+def check_unknown(unknown_repos):
     sprint("{} unknown repos found while checking github, please classify them:", len(unknown_repos))
     new_repos = {}
     new_exclude = []
     for repo in unknown_repos:
-        sprint("Name: {} Fork?: {}",
+        sprint("Name: {}\n"
+               "Fork: {}\n"
+               "URL: {}\n"
+               "Description: {}",
                repo['name'],
-               "Yes" if repo['fork'] else "No")
+               "Yes" if repo['fork'] else "No",
+               repo['url'],
+               repo['description'])
         while True:
-            choice = input("(A)dd/(S)kip/(E)xclude? ").upper()
-            if choice in ["A", "S", "E"]:
+            choice = input("(Y)es/(N)o/(E)xclude? ").upper()
+            if choice in ["Y", "N", "E"]:
                 break
-        if choice == "A":
-            sprint("Adding {} to the list of repos.", repo['name'])
+        sprint("")
+        if choice == "Y":
+            sprint("Adding {} to the list of repos.\n", repo['name'])
             new_repos[repo['name']] = {'clone_url': repo['clone_url']}
-            clone_repo(repo, repopath)
         elif choice == "E":
-            sprint("Adding {} to the exclusion list.", repo['name'])
+            sprint("Adding {} to the exclusion list.\n", repo['name'])
             new_exclude.append(repo['name'])
         else:
-            sprint("Skipping {} for this run.", repo['name'])
+            sprint("Skipping {} for this run.\n", repo['name'])
     return new_repos, new_exclude
 
 
@@ -154,7 +159,11 @@ def main():
     unknown = [repo for name, repo in ghub_repos.items() if name not in conf_repos]
 
     if args.interactive:
-        new_repos, new_exclude = check_unknown(unknown, repopath)
+        new_repos, new_exclude = check_unknown(unknown)
+
+        for name, repo in new_repos.items():
+            clone_repo(repo, repopath)
+
         conf['repos'].update(new_repos)
         conf['exclude'].update(exclude)
         with open(args.conf, "w") as conf_file:
