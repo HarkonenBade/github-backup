@@ -4,6 +4,7 @@ import argparse
 import itertools
 import os
 import sys
+import urllib.parse as urlp
 
 from agithub.GitHub import GitHub
 import git
@@ -88,11 +89,17 @@ def update_repos(repos, repopath):
         g_repo.remotes.origin.fetch()
 
 
-def clone_repo(repo, repopath):
-    sprint("Cloning repo {} from {}", repo['name'], repo['clone_url'])
-    git.Repo.clone_from(repo['clone_url'],
-                        os.path.join(repopath, repo['name']),
-                        mirror=True)
+def clone_repos(repos, repopath, user, token):
+    for name, repo in repos:
+        urlparts = urlp.urlsplit(repo['clone_url'])
+        url_netloc = "{}:{}@{}".format(user, token, urlparts.netloc)
+        url = urlp.urlunsplit(urlparts._replace(netloc=url_netloc))
+
+        sprint("Cloning repo {} from {}", name, url)
+
+        git.Repo.clone_from(url,
+                            os.path.join(repopath, repo['name']),
+                            mirror=True)
 
 
 def check_unknown(unknown_repos):
@@ -154,6 +161,8 @@ def main():
             sys.exit(1)
     ghub = GitHub(token=auth)
 
+    ghub_user = ghub.user.get()[1]['login']
+
     repopath = conf_load(conf, 'general', 'repopath')
     if repopath is None:
         sprint("Error: Config must specify a repopath in the general section.")
@@ -179,8 +188,7 @@ def main():
     if args.interactive:
         new_repos, new_exclude = check_unknown(unknown)
 
-        for name, repo in new_repos.items():
-            clone_repo(repo, repopath)
+        clone_repos(new_repos, repopath, ghub_user, auth)
 
         conf['repos'].update(new_repos)
         conf['exclude'].update(exclude)
