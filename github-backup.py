@@ -142,6 +142,9 @@ def main():
         sprint("Error: Config must specify a repopath in the general section.")
         sys.exit(1)
 
+    if not os.path.exists(repopath):
+        os.mkdir(repopath)
+
     only_personal = conf_load(conf, 'general', 'only_personal', default=True)
     unknown_repo_warning = conf_load(conf, 'general', 'unknown_repo_warning', default=5)
     exclude = conf_load(conf, 'exclude', default=[])
