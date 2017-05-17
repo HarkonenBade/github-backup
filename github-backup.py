@@ -78,28 +78,29 @@ def conf_load(conf, *args, default=None):
     return cur
 
 
-def update_repos(repos, repopath):
+def embed_auth_in_url(url, user, token):
+    urlparts = urlp.urlsplit(url)
+    url_netloc = "{}:{}@{}".format(user, token, urlparts.netloc)
+    return urlp.urlunsplit(urlparts._replace(netloc=url_netloc))
+
+
+def update_repos(repos, repopath, user, token):
     for name, repo in repos.items():
-        sprint("Updating {}...", name)
-        g_repo = git.Repo(os.path.join(repopath, name, ''))
-        if repo['clone_url'] != g_repo.remotes.origin.url:
-            sprint("Repo url is incorrect, altering.")
-            g_repo.remotes.origin.set_url(repo['clone_url'],
-                                          g_repo.remotes.origin.url)
-        g_repo.remotes.origin.fetch()
-
-
-def clone_repos(repos, repopath, user, token):
-    for name, repo in repos:
-        urlparts = urlp.urlsplit(repo['clone_url'])
-        url_netloc = "{}:{}@{}".format(user, token, urlparts.netloc)
-        url = urlp.urlunsplit(urlparts._replace(netloc=url_netloc))
-
-        sprint("Cloning repo {} from {}", name, url)
-
-        git.Repo.clone_from(url,
-                            os.path.join(repopath, repo['name']),
-                            mirror=True)
+        repo_dir = os.path.join(repopath, name)
+        url = embed_auth_in_url(repo['clone_url'], user, token)
+        if os.path.exists(repo_dir):
+            sprint("Updating repo {}", name)
+            g_repo = git.Repo(os.path.join(repopath, name, ''))
+            if url != g_repo.remotes.origin.url:
+                sprint("Repo url is incorrect, altering.")
+                g_repo.remotes.origin.set_url(url,
+                                              g_repo.remotes.origin.url)
+            g_repo.remotes.origin.fetch()
+        else:
+            sprint("Cloning repo {} from {}", name, url)
+            git.Repo.clone_from(url,
+                                os.path.join(repopath, name),
+                                mirror=True)
 
 
 def check_unknown(unknown_repos):
@@ -187,15 +188,12 @@ def main():
 
     if args.interactive:
         new_repos, new_exclude = check_unknown(unknown)
-
-        clone_repos(new_repos, repopath, ghub_user, auth)
-
         conf['repos'].update(new_repos)
         conf['exclude'].update(exclude)
         with open(args.conf, "w") as conf_file:
             yaml.safe_dump(conf, conf_file)
 
-    update_repos(conf_repos, repopath)
+    update_repos(conf_repos, repopath, ghub_user, auth)
 
     if not args.interactive:
         if 0 < unknown_repo_warning <= len(unknown):
