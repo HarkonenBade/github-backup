@@ -198,7 +198,7 @@ def main():
                for name, repo in ghub_repos.items()
                if name not in conf_repos]
 
-    if args.interactive:
+    if args.interactive and len(unknown) > 0:
         new_repos, new_exclude = check_unknown(unknown)
         conf['repos'].update(new_repos)
         conf['exclude'] = list(set(exclude) | set(new_exclude))
