@@ -2,3 +2,6 @@ venv/
 .idea/
 /github-backup.yml
 /repos
+/github_backup.egg-info/
+/dist/
+/build/
