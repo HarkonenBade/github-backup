@@ -67,6 +67,14 @@ def paginate(path, per_page=30, **kwargs):
                 break  # Non-full page must be last
 
 
+def test_token(ghub):
+    ret, _ = ghub.user.get()
+    if ret != 200:
+        error("Auth token does not seem to be valid. "
+              "Please check the value of token.")
+        sys.exit(1)
+
+
 def load_repos(ghub, only_personal, exclude):
     if only_personal:
         repos = paginate(ghub.user.repos.get, affiliation="owner")
@@ -176,6 +184,8 @@ def main():
                   "on command line or in config.")
             sys.exit(1)
     ghub = GitHub(token=auth)
+
+    test_token(ghub)
 
     ghub_user = ghub.user.get()[1]['login']
 
