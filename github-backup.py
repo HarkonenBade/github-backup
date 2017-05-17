@@ -70,7 +70,7 @@ def paginate(path, per_page=30, **kwargs):
 def test_token(ghub):
     ret, rsp = ghub.user.get()
     if ret == 401:
-        error("Auth token does not seem to be valid. "
+        error("Failed to authenticate to github. "
               "Please check the value of token.")
         sys.exit(1)
     elif ret == 403:
