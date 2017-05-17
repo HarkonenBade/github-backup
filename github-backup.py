@@ -204,7 +204,8 @@ def main():
 
     if args.interactive and len(unknown) > 0:
         new_repos, new_exclude = check_unknown(unknown)
-        conf['repos'].update(new_repos)
+        conf_repos.update(new_repos)
+        conf['repos'] = conf_repos
         conf['exclude'] = list(set(exclude) | set(new_exclude))
         with open(args.conf, "w") as conf_file:
             yaml.safe_dump(conf, conf_file, default_flow_style=False)
