@@ -119,14 +119,14 @@ def check_unknown(unknown_repos):
                repo['url'],
                repo['description'])
         while True:
-            choice = input("(Y)es/(N)o/(E)xclude? ").upper()
-            if choice in ["Y", "N", "E"]:
+            choice = input("(Y)es/(N)o/(S)kip? ").upper()
+            if choice in ["Y", "N", "S"]:
                 break
         sprint("")
         if choice == "Y":
             sprint("Adding {} to the list of repos.\n", repo['name'])
             new_repos[repo['name']] = {'clone_url': repo['clone_url']}
-        elif choice == "E":
+        elif choice == "N":
             sprint("Adding {} to the exclusion list.\n", repo['name'])
             new_exclude.append(repo['name'])
         else:
@@ -189,7 +189,7 @@ def main():
     if args.interactive:
         new_repos, new_exclude = check_unknown(unknown)
         conf['repos'].update(new_repos)
-        conf['exclude'] = list(set(conf['exclude']) | set(exclude))
+        conf['exclude'] = list(set(exclude) | set(new_exclude))
         with open(args.conf, "w") as conf_file:
             yaml.safe_dump(conf, conf_file)
 
