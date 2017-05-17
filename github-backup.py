@@ -29,6 +29,7 @@ general:
 repos: {{}}
 exclude: []"""
 
+
 def info(txt, *args, **kwargs):
     logging.info(txt.format(*args, **kwargs))
 
