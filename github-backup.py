@@ -34,7 +34,7 @@ def sprint(txt, *args, **kwargs):
 
 
 def gen_default_conf(conf_path, token):
-    repopath = os.getcwd()
+    repopath = os.path.join(os.getcwd(), 'repos')
     if token == "":
         body = DEFAULT_CONF_BODY.format(repopath=repopath,
                                         token='# token: "XXXXXXXX"')
