@@ -84,7 +84,10 @@ def conf_load(conf, *args, default=None):
             cur = cur[step]
         else:
             return default
-    return cur
+    if cur is None:
+        return default
+    else:
+        return cur
 
 
 def embed_auth_in_url(url, user, token):
