@@ -97,7 +97,7 @@ def update_repos(repos, repopath, user, token):
                                               g_repo.remotes.origin.url)
             g_repo.remotes.origin.fetch()
         else:
-            sprint("Cloning repo {} from {}", name, url)
+            sprint("Cloning repo {} from {}", name, repo['clone_url'])
             git.Repo.clone_from(url,
                                 os.path.join(repopath, name),
                                 mirror=True)
@@ -189,7 +189,7 @@ def main():
     if args.interactive:
         new_repos, new_exclude = check_unknown(unknown)
         conf['repos'].update(new_repos)
-        conf['exclude'].update(exclude)
+        conf['exclude'] = list(set(conf['exclude']) | set(exclude))
         with open(args.conf, "w") as conf_file:
             yaml.safe_dump(conf, conf_file)
 
@@ -199,7 +199,7 @@ def main():
         if 0 < unknown_repo_warning <= len(unknown):
             sprint("Error: There are {} unknown repos on github. "
                    "This is more than your limit of {}.",
-                   unknown,
+                   len(unknown),
                    unknown_repo_warning)
             sys.exit(2)
 
