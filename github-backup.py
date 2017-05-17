@@ -2,6 +2,7 @@
 
 import argparse
 import itertools
+import logging
 import os
 import sys
 import urllib.parse as urlp
@@ -27,6 +28,13 @@ general:
   only_personal: true
 repos: {{}}
 exclude: []"""
+
+def info(txt, *args, **kwargs):
+    logging.info(txt.format(*args, **kwargs))
+
+
+def error(txt, *args, **kwargs):
+    logging.error(txt.format(*args, **kwargs))
 
 
 def sprint(txt, *args, **kwargs):
@@ -89,15 +97,15 @@ def update_repos(repos, repopath, user, token):
         repo_dir = os.path.join(repopath, name)
         url = embed_auth_in_url(repo['clone_url'], user, token)
         if os.path.exists(repo_dir):
-            sprint("Updating repo {}", name)
+            info("Updating repo {}", name)
             g_repo = git.Repo(os.path.join(repopath, name, ''))
             if url != g_repo.remotes.origin.url:
-                sprint("Repo url is incorrect, altering.")
+                info("Repo url is incorrect, altering.")
                 g_repo.remotes.origin.set_url(url,
                                               g_repo.remotes.origin.url)
             g_repo.remotes.origin.fetch()
         else:
-            sprint("Cloning repo {} from {}", name, repo['clone_url'])
+            info("Cloning repo {} from {}", name, repo['clone_url'])
             git.Repo.clone_from(url,
                                 os.path.join(repopath, name),
                                 mirror=True)
@@ -139,14 +147,17 @@ def gather_args():
     parser.add_argument("--conf", default=DEFAULT_CONF_PATH)
     parser.add_argument("--token", default="")
     parser.add_argument("--interactive", action="store_true")
+    parser.add_argument("--quiet", action="store_true")
     return parser.parse_args()
 
 
 def main():
     args = gather_args()
-
+    logging.basicConfig(format="{levelname} {message}",
+                        style="{",
+                        level=logging.ERROR if args.quiet else logging.INFO)
     if not os.path.exists(args.conf):
-        sprint("No config file found, generating a bare-bones one.")
+        info("No config file found, generating a bare-bones one.")
         gen_default_conf(args.conf, args.token)
 
     with open(args.conf, "r") as conf_file:
@@ -157,8 +168,8 @@ def main():
     else:
         auth = conf_load(conf, 'general', 'token')
         if auth is None:
-            sprint("Error: Must either specify auth token "
-                   "on command line or in config.")
+            error("Must either specify auth token "
+                  "on command line or in config.")
             sys.exit(1)
     ghub = GitHub(token=auth)
 
@@ -166,10 +177,11 @@ def main():
 
     repopath = conf_load(conf, 'general', 'repopath')
     if repopath is None:
-        sprint("Error: Config must specify a repopath in the general section.")
+        error("Config must specify a repopath in the general section.")
         sys.exit(1)
 
     if not os.path.exists(repopath):
+        info("Repo path does not exist, creating.")
         os.mkdir(repopath)
 
     only_personal = conf_load(conf,
@@ -197,10 +209,10 @@ def main():
 
     if not args.interactive:
         if 0 < unknown_repo_warning <= len(unknown):
-            sprint("Error: There are {} unknown repos on github. "
-                   "This is more than your limit of {}.",
-                   len(unknown),
-                   unknown_repo_warning)
+            error("There are {} unknown repos on github. "
+                  "This is more than your limit of {}.",
+                  len(unknown),
+                  unknown_repo_warning)
             sys.exit(2)
 
 
