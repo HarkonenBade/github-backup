@@ -68,10 +68,19 @@ def paginate(path, per_page=30, **kwargs):
 
 
 def test_token(ghub):
-    ret, _ = ghub.user.get()
-    if ret != 200:
+    ret, rsp = ghub.user.get()
+    if ret == 401:
         error("Auth token does not seem to be valid. "
               "Please check the value of token.")
+        sys.exit(1)
+    elif ret == 403:
+        error("You have tried to connect too many times with "
+              "an invalid token. Please wait and try again later.")
+        sys.exit(1)
+    elif ret == 200:
+        return
+    else:
+        error("Access to github returned code {} and response:\n{}", ret, rsp)
         sys.exit(1)
 
 
