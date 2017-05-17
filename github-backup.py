@@ -191,7 +191,7 @@ def main():
         conf['repos'].update(new_repos)
         conf['exclude'] = list(set(exclude) | set(new_exclude))
         with open(args.conf, "w") as conf_file:
-            yaml.safe_dump(conf, conf_file)
+            yaml.safe_dump(conf, conf_file, default_flow_style=False)
 
     update_repos(conf_repos, repopath, ghub_user, auth)
 
