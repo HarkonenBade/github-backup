@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 import argparse
+import concurrent.futures as cf
 import itertools
 import logging
 import os
@@ -117,31 +118,35 @@ def load_refs(repo):
     return {ref.name: ref.commit.hexsha for ref in repo.refs}
 
 
-def update_repos(repos, repopath, user, token):
-    for name, repo in repos.items():
-        repo_dir = os.path.join(repopath, name)
-        url = embed_auth_in_url(repo['clone_url'], user, token)
-        if os.path.exists(repo_dir):
-            g_repo = git.Repo(os.path.join(repopath, name, ''))
-            if url != g_repo.remotes.origin.url:
-                info("Repo url is incorrect, altering.")
-                g_repo.remotes.origin.set_url(url,
-                                              g_repo.remotes.origin.url)
+def update_repos(repos, repopath, user, token, max_workers):
+    with cf.ThreadPoolExecutor(max_workers=max_workers) as ex:
+        cf.wait([ex.submit(update_repo, name, repo, repopath, user, token) for name, repo in repos.items()])
 
-            ref_snapshot = load_refs(g_repo)
 
-            g_repo.remotes.origin.fetch()
+def update_repo(name, repo, repopath, user, token):
+    repo_dir = os.path.join(repopath, name)
+    url = embed_auth_in_url(repo['clone_url'], user, token)
+    if os.path.exists(repo_dir):
+        g_repo = git.Repo(os.path.join(repopath, name, ''))
+        if url != g_repo.remotes.origin.url:
+            info("Repo url is incorrect, altering.")
+            g_repo.remotes.origin.set_url(url,
+                                          g_repo.remotes.origin.url)
 
-            if ref_snapshot != load_refs(g_repo):
-                info("Fetched repo {} retrieved new changes", name)
-            else:
-                info("Fetched repo {} no new changes", name)
+        ref_snapshot = load_refs(g_repo)
 
+        g_repo.remotes.origin.fetch()
+
+        if ref_snapshot != load_refs(g_repo):
+            info("Fetched repo {} retrieved new changes", name)
         else:
-            git.Repo.clone_from(url,
-                                os.path.join(repopath, name),
-                                mirror=True)
-            info("Cloned repo {} from {}", name, repo['clone_url'])
+            info("Fetched repo {} no new changes", name)
+
+    else:
+        git.Repo.clone_from(url,
+                            os.path.join(repopath, name),
+                            mirror=True)
+        info("Cloned repo {} from {}", name, repo['clone_url'])
 
 
 def check_unknown(unknown_repos):
@@ -181,6 +186,7 @@ def gather_args():
     parser.add_argument("--token", default="")
     parser.add_argument("--interactive", action="store_true")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--workers", "-j", type=int, default=8)
     return parser.parse_args()
 
 
@@ -241,7 +247,7 @@ def main():
         with open(args.conf, "w") as conf_file:
             yaml.safe_dump(conf, conf_file, default_flow_style=False)
 
-    update_repos(conf_repos, repopath, ghub_user, auth)
+    update_repos(conf_repos, repopath, ghub_user, auth, max_workers=args.workers)
 
     if not args.interactive:
         if 0 < unknown_repo_warning <= len(unknown):
