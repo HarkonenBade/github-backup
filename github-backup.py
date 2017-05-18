@@ -79,20 +79,18 @@ def test_token(ghub):
               "an invalid token. Please wait and try again later.")
         sys.exit(1)
     elif ret == 200:
-        return
+        return rsp
     else:
         error("Access to github returned code {} and response:\n{}", ret, rsp)
         sys.exit(1)
 
 
-def load_repos(ghub, only_personal, exclude):
+def load_repos(ghub, only_personal):
     if only_personal:
         repos = paginate(ghub.user.repos.get, affiliation="owner")
     else:
         repos = paginate(ghub.user.repos.get)
-    return {repo['name']: repo
-            for repo in repos
-            if repo['name'] not in exclude}
+    return {repo['name']: repo for repo in repos}
 
 
 def conf_load(conf, *args, default=None):
@@ -207,9 +205,8 @@ def main():
             sys.exit(1)
     ghub = GitHub(token=auth)
 
-    test_token(ghub)
-
-    ghub_user = ghub.user.get()[1]['login']
+    info("Testing auth token and loading user")
+    user = test_token(ghub)['login']
 
     repopath = conf_load(conf, 'general', 'repopath')
     if repopath is None:
@@ -226,13 +223,20 @@ def main():
     unknown_repo_warning = conf_load(conf,
                                      'general', 'unknown_repo_warning',
                                      default=5)
-    exclude = conf_load(conf, 'exclude', default=[])
+
+    info("Loading data from config")
     conf_repos = conf_load(conf, 'repos', default={})
-    ghub_repos = load_repos(ghub, only_personal, exclude)
+    info("{} repos configured", len(conf_repos))
+    exclude = conf_load(conf, 'exclude', default=[])
+    info("{} repos excluded", len(exclude))
+
+    info("Loading repo data from github")
+    ghub_repos = load_repos(ghub, only_personal)
 
     unknown = [repo
                for name, repo in ghub_repos.items()
-               if name not in conf_repos]
+               if name not in conf_repos and name not in exclude]
+    info("{} repos found on github of which {} are unknown", len(ghub_repos), len(unknown))
 
     if args.interactive and len(unknown) > 0:
         new_repos, new_exclude = check_unknown(unknown)
@@ -242,8 +246,9 @@ def main():
         with open(args.conf, "w") as conf_file:
             yaml.safe_dump(conf, conf_file, default_flow_style=False)
 
+    info("Updating repositories")
     with cf.ThreadPoolExecutor(max_workers=args.workers) as ex:
-        cf.wait([ex.submit(update_repo, name, repo, repopath, ghub_user, auth)
+        cf.wait([ex.submit(update_repo, name, repo, repopath, user, auth)
                  for name, repo in conf_repos.items()])
 
     if not args.interactive:
