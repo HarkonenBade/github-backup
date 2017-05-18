@@ -185,7 +185,7 @@ def gather_args():
 
 def main():
     args = gather_args()
-    logging.basicConfig(format="{levelname} {message}",
+    logging.basicConfig(format="{message}",
                         style="{",
                         level=logging.ERROR if args.quiet else logging.INFO)
     if not os.path.exists(args.conf):
