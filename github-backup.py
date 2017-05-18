@@ -133,9 +133,9 @@ def update_repo(name, repo, repopath, user, token):
         g_repo.remotes.origin.fetch()
 
         if ref_snapshot != load_refs(g_repo):
-            info("Fetched repo {} retrieved new changes", name)
+            info("Fetched repo {} - new changes", name)
         else:
-            info("Fetched repo {} no new changes", name)
+            info("Fetched repo {}", name)
 
     else:
         git.Repo.clone_from(url,
