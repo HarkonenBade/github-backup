@@ -35,8 +35,9 @@ def info(txt, *args, **kwargs):
     logging.info(txt.format(*args, **kwargs))
 
 
-def error(txt, *args, **kwargs):
+def error(txt, *args, exit=1, **kwargs):
     logging.error(txt.format(*args, **kwargs))
+    sys.exit(exit)
 
 
 def sprint(txt, *args, **kwargs):
@@ -71,18 +72,15 @@ def paginate(path, per_page=30, **kwargs):
 def test_token(ghub):
     ret, rsp = ghub.user.get()
     if ret == 401:
-        error("Failed to authenticate to github. "
+        error("Error: Failed to authenticate to github. "
               "Please check the value of token.")
-        sys.exit(1)
     elif ret == 403:
-        error("You have tried to connect too many times with "
+        error("Error: You have tried to connect too many times with "
               "an invalid token. Please wait and try again later.")
-        sys.exit(1)
     elif ret == 200:
         return rsp
     else:
-        error("Access to github returned code {} and response:\n{}", ret, rsp)
-        sys.exit(1)
+        error("Error: Access to github returned code {} and response:\n{}", ret, rsp)
 
 
 def load_repos(ghub, only_personal):
@@ -200,9 +198,8 @@ def main():
     else:
         auth = conf_load(conf, 'general', 'token')
         if auth is None:
-            error("Must either specify auth token "
+            error("Error: Must either specify auth token "
                   "on command line or in config.")
-            sys.exit(1)
     ghub = GitHub(token=auth)
 
     info("Testing auth token and loading user")
@@ -210,8 +207,7 @@ def main():
 
     repopath = conf_load(conf, 'general', 'repopath')
     if repopath is None:
-        error("Config must specify a repopath in the general section.")
-        sys.exit(1)
+        error("Error: Config must specify a repopath in the general section.")
 
     if not os.path.exists(repopath):
         info("Repo path does not exist, creating.")
@@ -253,11 +249,11 @@ def main():
 
     if not args.interactive:
         if 0 < unknown_repo_warning <= len(unknown):
-            error("There are {} unknown repos on github. "
+            error("Error: There are {} unknown repos on github. "
                   "This is more than your limit of {}.",
                   len(unknown),
-                  unknown_repo_warning)
-            sys.exit(2)
+                  unknown_repo_warning,
+                  exit=2)
 
 
 if __name__ == "__main__":
