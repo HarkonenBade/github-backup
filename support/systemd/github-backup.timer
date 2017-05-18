@@ -1,0 +1,8 @@
+[Unit]
+Description=Run github-backup each day
+
+[Timer]
+# By default runs each day at 12pm-2am
+OnCalendar=daily
+RandomizedDelaySec=2h
+Persistent=true
