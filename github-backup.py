@@ -118,26 +118,33 @@ def update_repo(name, repo, repopath, user, token):
     repo_dir = os.path.join(repopath, name)
     url = embed_auth_in_url(repo['clone_url'], user, token)
     if os.path.exists(repo_dir):
-        g_repo = git.Repo(os.path.join(repopath, name, ''))
-        if url != g_repo.remotes.origin.url:
-            info("Repo url is incorrect, altering.")
-            g_repo.remotes.origin.set_url(url,
-                                          g_repo.remotes.origin.url)
+        try:
+            g_repo = git.Repo(os.path.join(repopath, name, ''))
+            if url != g_repo.remotes.origin.url:
+                info("Repo url is incorrect, altering.")
+                g_repo.remotes.origin.set_url(url,
+                                              g_repo.remotes.origin.url)
 
-        ref_snapshot = load_refs(g_repo)
+            ref_snapshot = load_refs(g_repo)
 
-        g_repo.remotes.origin.fetch()
+            g_repo.remotes.origin.fetch()
 
-        if ref_snapshot != load_refs(g_repo):
-            info("Fetched repo {} - new changes", name)
-        else:
-            info("Fetched repo {}", name)
-
+            if ref_snapshot != load_refs(g_repo):
+                info("Fetched repo {} - new changes", name)
+            else:
+                info("Fetched repo {}", name)
+        except git.ODBError:
+            info("Failed to fetch repo {}", name)
     else:
-        git.Repo.clone_from(url,
-                            os.path.join(repopath, name),
-                            mirror=True)
-        info("Cloned repo {} from {}", name, repo['clone_url'])
+        try:
+            git.Repo.clone_from(url,
+                                os.path.join(repopath, name),
+                                mirror=True)
+            info("Cloned repo {} from {}", name, repo['clone_url'])
+        except git.ODBError:
+            info("Failed to clone repo {} from {}", name, repo['clone_url'])
+
+
 
 
 def check_unknown(unknown_repos):
