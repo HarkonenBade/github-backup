@@ -113,23 +113,35 @@ def embed_auth_in_url(url, user, token):
     return urlp.urlunsplit(urlparts._replace(netloc=url_netloc))
 
 
+def load_refs(repo):
+    return {ref.name: ref.commit.hexsha for ref in repo.refs}
+
+
 def update_repos(repos, repopath, user, token):
     for name, repo in repos.items():
         repo_dir = os.path.join(repopath, name)
         url = embed_auth_in_url(repo['clone_url'], user, token)
         if os.path.exists(repo_dir):
-            info("Updating repo {}", name)
             g_repo = git.Repo(os.path.join(repopath, name, ''))
             if url != g_repo.remotes.origin.url:
                 info("Repo url is incorrect, altering.")
                 g_repo.remotes.origin.set_url(url,
                                               g_repo.remotes.origin.url)
+
+            ref_snapshot = load_refs(g_repo)
+
             g_repo.remotes.origin.fetch()
+
+            if ref_snapshot != load_refs(g_repo):
+                info("Fetched repo {} retrieved new changes", name)
+            else:
+                info("Fetched repo {} no new changes", name)
+
         else:
-            info("Cloning repo {} from {}", name, repo['clone_url'])
             git.Repo.clone_from(url,
                                 os.path.join(repopath, name),
                                 mirror=True)
+            info("Cloned repo {} from {}", name, repo['clone_url'])
 
 
 def check_unknown(unknown_repos):
