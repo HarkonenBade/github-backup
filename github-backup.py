@@ -118,11 +118,6 @@ def load_refs(repo):
     return {ref.name: ref.commit.hexsha for ref in repo.refs}
 
 
-def update_repos(repos, repopath, user, token, max_workers):
-    with cf.ThreadPoolExecutor(max_workers=max_workers) as ex:
-        cf.wait([ex.submit(update_repo, name, repo, repopath, user, token) for name, repo in repos.items()])
-
-
 def update_repo(name, repo, repopath, user, token):
     repo_dir = os.path.join(repopath, name)
     url = embed_auth_in_url(repo['clone_url'], user, token)
@@ -247,7 +242,9 @@ def main():
         with open(args.conf, "w") as conf_file:
             yaml.safe_dump(conf, conf_file, default_flow_style=False)
 
-    update_repos(conf_repos, repopath, ghub_user, auth, max_workers=args.workers)
+    with cf.ThreadPoolExecutor(max_workers=args.workers) as ex:
+        cf.wait([ex.submit(update_repo, name, repo, repopath, ghub_user, auth)
+                 for name, repo in conf_repos.items()])
 
     if not args.interactive:
         if 0 < unknown_repo_warning <= len(unknown):
