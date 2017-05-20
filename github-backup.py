@@ -35,9 +35,9 @@ def info(txt, *args, **kwargs):
     logging.info(txt.format(*args, **kwargs))
 
 
-def error(txt, *args, exit=1, **kwargs):
+def error(txt, *args, exit_code=1, **kwargs):
     logging.error(txt.format(*args, **kwargs))
-    sys.exit(exit)
+    sys.exit(exit_code)
 
 
 def sprint(txt, *args, **kwargs):
@@ -107,7 +107,11 @@ def conf_load(conf, *args, default=None):
 def embed_auth_in_url(url, user, token):
     urlparts = urlp.urlsplit(url)
     url_netloc = "{}:{}@{}".format(user, token, urlparts.netloc)
-    return urlp.urlunsplit(urlparts._replace(netloc=url_netloc))
+    return urlp.urlunsplit((urlparts.scheme,
+                            url_netloc,
+                            urlparts.path,
+                            urlparts.query,
+                            urlparts.fragment))
 
 
 def load_refs(repo):
@@ -143,8 +147,6 @@ def update_repo(name, repo, repopath, user, token):
             info("Cloned repo {} from {}", name, repo['clone_url'])
         except git.ODBError:
             info("Failed to clone repo {} from {}", name, repo['clone_url'])
-
-
 
 
 def check_unknown(unknown_repos):
@@ -260,7 +262,7 @@ def main():
                   "This is more than your limit of {}.",
                   len(unknown),
                   unknown_repo_warning,
-                  exit=2)
+                  exit_code=2)
 
 
 if __name__ == "__main__":
