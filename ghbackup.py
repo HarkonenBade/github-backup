@@ -13,7 +13,7 @@ import git
 import yaml
 
 
-DEFAULT_CONF_PATH = "./github-backup.yml"
+DEFAULT_CONF_PATH = "./ghbackup.yml"
 
 DEFAULT_CONF_BODY = """
 general:

@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/github-backup.py --conf=/etc/github-backup.yml
+ExecStart=/usr/local/bin/ghbackup.py --conf=/etc/ghbackup.yml
 # Runs by default as root, if you want to use a different user
 # uncomment the line below and supply the users name
-#User=github-backup
+#User=ghbackup

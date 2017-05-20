@@ -1,6 +1,6 @@
 venv/
 .idea/
-/github-backup.yml
+/ghbackup.yml
 /repos
 /github_backup.egg-info/
 /dist/
