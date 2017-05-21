@@ -7,6 +7,9 @@ python:
     - "3.7-dev" # 3.7 development branch
     - "nightly" # currently points to 3.7-dev
 # command to install dependencies
-install: "pip install ."
+install:
+    - "pip install ."
+    - "pip install coveralls"
 # command to run tests
-script: "./setup.py nosetests"
+script: "coverage run --source=ghbackup ./setup.py nosetests"
+after_success: "coveralls"
