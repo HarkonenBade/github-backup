@@ -8,6 +8,8 @@ import os
 import sys
 import urllib.parse as urlp
 
+from typing import Any, Callable, List, Mapping, Optional, Tuple
+
 from agithub.GitHub import GitHub
 import git
 import yaml
@@ -31,20 +33,20 @@ repos: {{}}
 exclude: []"""
 
 
-def info(txt, *args, **kwargs):
+def info(txt: str, *args, **kwargs) -> None:
     logging.info(txt.format(*args, **kwargs))
 
 
-def error(txt, *args, exit_code=1, **kwargs):
+def error(txt: str, *args, exit_code: int = 1, **kwargs) -> None:
     logging.error(txt.format(*args, **kwargs))
     sys.exit(exit_code)
 
 
-def sprint(txt, *args, **kwargs):
+def sprint(txt: str, *args, **kwargs) -> None:
     print(txt.format(*args, **kwargs), flush=True)
 
 
-def gen_default_conf(conf_path, token):
+def gen_default_conf(conf_path: str, token: str) -> None:
     repopath = os.path.join(os.getcwd(), 'repos')
     if token == "":
         body = DEFAULT_CONF_BODY.format(repopath=repopath,
@@ -56,7 +58,7 @@ def gen_default_conf(conf_path, token):
         conf_file.write(body)
 
 
-def paginate(path, per_page=30, **kwargs):
+def paginate(path: Callable, per_page: int = 30, **kwargs) -> List[Mapping]:
     for page in itertools.count(1):
         status, rsp = path(page=page, per_page=per_page, **kwargs)
         rsps = len(rsp)
@@ -69,7 +71,7 @@ def paginate(path, per_page=30, **kwargs):
                 break  # Non-full page must be last
 
 
-def test_token(ghub):
+def test_token(ghub: GitHub) -> Optional[Mapping]:
     ret, rsp = ghub.user.get()
     if ret == 401:
         error("Error: Failed to authenticate to github. "
@@ -83,7 +85,7 @@ def test_token(ghub):
         error("Error: Access to github returned code {} and response:\n{}", ret, rsp)
 
 
-def load_repos(ghub, only_personal):
+def load_repos(ghub: GitHub, only_personal: bool) -> Mapping[str, Mapping]:
     if only_personal:
         repos = paginate(ghub.user.repos.get, affiliation="owner")
     else:
@@ -91,7 +93,7 @@ def load_repos(ghub, only_personal):
     return {repo['name']: repo for repo in repos}
 
 
-def conf_load(conf, *args, default=None):
+def conf_load(conf: Mapping[str, Any], *args, default: Any = None) -> Any:
     cur = conf
     for step in args:
         if step in cur:
@@ -104,7 +106,7 @@ def conf_load(conf, *args, default=None):
         return cur
 
 
-def embed_auth_in_url(url, user, token):
+def embed_auth_in_url(url: str, user: str, token: str) -> str:
     urlparts = urlp.urlsplit(url)
     url_netloc = "{}:{}@{}".format(user, token, urlparts.netloc)
     return urlp.urlunsplit((urlparts.scheme,
@@ -114,11 +116,11 @@ def embed_auth_in_url(url, user, token):
                             urlparts.fragment))
 
 
-def load_refs(repo):
+def load_refs(repo) -> Mapping[str, str]:
     return {ref.name: ref.commit.hexsha for ref in repo.refs}
 
 
-def update_repo(name, repo, repopath, user, token):
+def update_repo(name: str, repo: Mapping, repopath: str, user: str, token: str) -> None:
     repo_dir = os.path.join(repopath, name)
     url = embed_auth_in_url(repo['clone_url'], user, token)
     if os.path.exists(repo_dir):
@@ -149,7 +151,7 @@ def update_repo(name, repo, repopath, user, token):
             info("Failed to clone repo {} from {}", name, repo['clone_url'])
 
 
-def check_unknown(unknown_repos):
+def check_unknown(unknown_repos: List[Mapping]) -> Tuple[Mapping[str, Mapping], List[str]]:
     sprint("{} unknown repos found while checking github, "
            "please classify them:",
            len(unknown_repos))
