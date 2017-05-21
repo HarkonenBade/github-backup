@@ -1,3 +1,4 @@
+#! /usr/bin/env python3.5
 from setuptools import setup
 
 
@@ -13,5 +14,6 @@ setup(
     author_email='github@harkonen.net',
     description='A basic solution for backing up github repos',
     long_description=long_description,
-    install_requires=['agithub', 'gitpython', 'pyyaml']
+    install_requires=['agithub', 'gitpython', 'pyyaml'],
+    tests_require=['nose', 'coverage'],
 )

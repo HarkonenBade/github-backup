@@ -1,7 +1,9 @@
-venv/
-.idea/
+/venv/
+/.idea/
 /ghbackup.yml
 /repos
 /github_backup.egg-info/
 /dist/
 /build/
+/.coverage
+__pycache__/
