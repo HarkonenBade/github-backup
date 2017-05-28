@@ -33,15 +33,15 @@ repos: {{}}
 exclude: []"""
 
 
-def info(txt: str, *args, **kwargs) -> None:
+def info(txt: str, *args: Any, **kwargs: Any) -> None:
     logging.info(txt.format(*args, **kwargs))
 
 
-def error(txt: str, *args, **kwargs) -> None:
+def error(txt: str, *args: Any, **kwargs: Any) -> None:
     logging.error("Error: " + txt.format(*args, **kwargs))
 
 
-def sprint(txt: str, *args, **kwargs) -> None:
+def sprint(txt: str, *args: Any, **kwargs: Any) -> None:
     print(txt.format(*args, **kwargs), flush=True)
 
 
@@ -57,8 +57,8 @@ def gen_default_conf(conf_path: str, token: str) -> None:
         conf_file.write(body)
 
 
-def paginate(path: Callable, per_page: int = 30, **kwargs) -> Tuple[int, List[Mapping]]:
-    output = []
+def paginate(path: Callable, per_page: int = 30, **kwargs: Any) -> Tuple[int, List[Mapping]]:
+    output = []  # type: List[Mapping]
     for page in itertools.count(1):
         status, rsp = path(page=page, per_page=per_page, **kwargs)
 
@@ -76,7 +76,7 @@ def paginate(path: Callable, per_page: int = 30, **kwargs) -> Tuple[int, List[Ma
 
 
 def test_token(ghub: GitHub) -> Optional[Mapping]:
-    ret, rsp = ghub.user.get()
+    ret, rsp = ghub.user.get()  # type: Tuple[int, Mapping]
     if ret == 401:
         error("Failed to authenticate to github. Please check the value of token.")
     elif ret == 403:
@@ -100,7 +100,7 @@ def load_repos(ghub: GitHub, only_personal: bool) -> Optional[Mapping[str, Mappi
         return None
 
 
-def conf_load(conf: Mapping[str, Any], *args, default: Any = None) -> Any:
+def conf_load(conf: Mapping[str, Any], *args: Any, default: Any = None) -> Any:
     cur = conf
     for step in args:
         if step in cur:
@@ -123,7 +123,7 @@ def embed_auth_in_url(url: str, user: str, token: str) -> str:
                             urlparts.fragment))
 
 
-def load_refs(repo) -> Mapping[str, str]:
+def load_refs(repo: Any) -> Mapping[str, str]:
     return {ref.name: ref.commit.hexsha for ref in repo.refs}
 
 
@@ -206,7 +206,7 @@ def check_unknown(unknown_repos: List[Mapping]) -> Tuple[Mapping[str, Mapping], 
     return new_repos, new_exclude
 
 
-def gather_args():
+def gather_args() -> Any:
     parser = argparse.ArgumentParser(description="A github mirroring tool.")
     parser.add_argument("--conf", default=DEFAULT_CONF_PATH)
     parser.add_argument("--token", default="")
