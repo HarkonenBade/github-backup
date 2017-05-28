@@ -57,17 +57,22 @@ def gen_default_conf(conf_path: str, token: str) -> None:
         conf_file.write(body)
 
 
-def paginate(path: Callable, per_page: int = 30, **kwargs) -> List[Mapping]:
+def paginate(path: Callable, per_page: int = 30, **kwargs) -> Tuple[int, List[Mapping]]:
+    output = []
     for page in itertools.count(1):
         status, rsp = path(page=page, per_page=per_page, **kwargs)
+
+        if status != 200:
+            return status, rsp
+
         rsps = len(rsp)
         if rsps == 0:
             break  # Empty page means we are done
         else:
-            for elm in rsp:
-                yield elm
+            output += rsp
             if rsps < per_page:
                 break  # Non-full page must be last
+    return 200, output
 
 
 def test_token(ghub: GitHub) -> Optional[Mapping]:
@@ -84,12 +89,15 @@ def test_token(ghub: GitHub) -> Optional[Mapping]:
     return None
 
 
-def load_repos(ghub: GitHub, only_personal: bool) -> Mapping[str, Mapping]:
+def load_repos(ghub: GitHub, only_personal: bool) -> Optional[Mapping[str, Mapping]]:
     if only_personal:
-        repos = paginate(ghub.user.repos.get, affiliation="owner")
+        status, repos = paginate(ghub.user.repos.get, affiliation="owner")
     else:
-        repos = paginate(ghub.user.repos.get)
-    return {repo['name']: repo for repo in repos}
+        status, repos = paginate(ghub.user.repos.get)
+    if status == 200:
+        return {repo['name']: repo for repo in repos}
+    else:
+        return None
 
 
 def conf_load(conf: Mapping[str, Any], *args, default: Any = None) -> Any:
@@ -256,6 +264,10 @@ def main() -> int:
 
     info("Loading repo data from github")
     ghub_repos = load_repos(ghub, only_personal)
+
+    if ghub_repos is None:
+        error("Failed to retrieve repo data from GitHub")
+        return 1
 
     unknown = [repo
                for name, repo in ghub_repos.items()
