@@ -37,9 +37,8 @@ def info(txt: str, *args, **kwargs) -> None:
     logging.info(txt.format(*args, **kwargs))
 
 
-def error(txt: str, *args, exit_code: int = 1, **kwargs) -> None:
-    logging.error(txt.format(*args, **kwargs))
-    sys.exit(exit_code)
+def error(txt: str, *args, **kwargs) -> None:
+    logging.error("Error: " + txt.format(*args, **kwargs))
 
 
 def sprint(txt: str, *args, **kwargs) -> None:
@@ -74,15 +73,15 @@ def paginate(path: Callable, per_page: int = 30, **kwargs) -> List[Mapping]:
 def test_token(ghub: GitHub) -> Optional[Mapping]:
     ret, rsp = ghub.user.get()
     if ret == 401:
-        error("Error: Failed to authenticate to github. "
-              "Please check the value of token.")
+        error("Failed to authenticate to github. Please check the value of token.")
     elif ret == 403:
-        error("Error: You have tried to connect too many times with "
+        error("You have tried to connect too many times with "
               "an invalid token. Please wait and try again later.")
     elif ret == 200:
         return rsp
     else:
-        error("Error: Access to github returned code {} and response:\n{}", ret, rsp)
+        error("Access to github returned code {} and response:\n{}", ret, rsp)
+    return None
 
 
 def load_repos(ghub: GitHub, only_personal: bool) -> Mapping[str, Mapping]:
@@ -120,11 +119,17 @@ def load_refs(repo) -> Mapping[str, str]:
     return {ref.name: ref.commit.hexsha for ref in repo.refs}
 
 
-def update_repo(name: str, repo: Mapping, repopath: str, user: str, token: str) -> None:
+def update_repo(name: str, repo: Mapping, repopath: str, user: str, token: str) -> bool:
     repo_dir = os.path.join(repopath, name)
     url = embed_auth_in_url(repo['clone_url'], user, token)
-    if os.path.exists(repo_dir):
-        try:
+    clone = not os.path.exists(repo_dir)
+    try:
+        if clone:
+            git.Repo.clone_from(url,
+                                os.path.join(repopath, name),
+                                mirror=True)
+            info("Cloned repo {} from {}", name, repo['clone_url'])
+        else:
             g_repo = git.Repo(os.path.join(repopath, name, ''))
             if url != g_repo.remotes.origin.url:
                 info("Repo url is incorrect, altering.")
@@ -139,16 +144,27 @@ def update_repo(name: str, repo: Mapping, repopath: str, user: str, token: str) 
                 info("Fetched repo {} - new changes", name)
             else:
                 info("Fetched repo {}", name)
-        except git.ODBError:
-            info("Failed to fetch repo {}", name)
+        return True
+    except git.GitCommandNotFound:
+        error("Failed to find git binary, please install git.")
+    except git.NoSuchPathError:
+        error("Cannot operate on repo path: {}", repo_dir)
+    except git.InvalidGitRepositoryError:
+        error("Problem with the repo contained in {}. "
+              "If the repository still exists on GitHub, "
+              "try deleting the local copy and retrieving a fresh clone.",
+              repo_dir)
+    except git.GitCommandError as exc:
+        error("Git operation failed:\nArgs: {}\nOutput:\n{}",
+              " ".join(exc.command),
+              exc.stderr.strip()[9:-1])
+    except (git.CommandError, git.CacheError):
+        logging.exception("Exception encountered:")
+    if clone:
+        error("Failed to clone repo {} from {}", name, repo['clone_url'])
     else:
-        try:
-            git.Repo.clone_from(url,
-                                os.path.join(repopath, name),
-                                mirror=True)
-            info("Cloned repo {} from {}", name, repo['clone_url'])
-        except git.ODBError:
-            info("Failed to clone repo {} from {}", name, repo['clone_url'])
+        error("Failed to fetch repo {}", name)
+    return False
 
 
 def check_unknown(unknown_repos: List[Mapping]) -> Tuple[Mapping[str, Mapping], List[str]]:
@@ -192,7 +208,7 @@ def gather_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> int:
     args = gather_args()
     logging.basicConfig(format="{message}",
                         style="{",
@@ -209,8 +225,8 @@ def main():
     else:
         auth = conf_load(conf, 'general', 'token')
         if auth is None:
-            error("Error: Must either specify auth token "
-                  "on command line or in config.")
+            error("Must either specify auth token on command line or in config.")
+            return 1
     ghub = GitHub(token=auth)
 
     info("Testing auth token and loading user")
@@ -218,7 +234,8 @@ def main():
 
     repopath = conf_load(conf, 'general', 'repopath')
     if repopath is None:
-        error("Error: Config must specify a repopath in the general section.")
+        error("Config must specify a repopath in the general section.")
+        return 1
 
     if not os.path.exists(repopath):
         info("Repo path does not exist, creating.")
@@ -254,18 +271,25 @@ def main():
             yaml.safe_dump(conf, conf_file, default_flow_style=False)
 
     info("Updating repositories")
+
+    exit_code = 0
+
     with cf.ThreadPoolExecutor(max_workers=args.workers) as ex:
-        cf.wait([ex.submit(update_repo, name, repo, repopath, user, auth)
-                 for name, repo in conf_repos.items()])
+        futures = [ex.submit(update_repo, name, repo, repopath, user, auth) for name, repo in conf_repos.items()]
+        all_success = all([ftr.result() for ftr in cf.as_completed(futures)])
+        if not all_success:
+            error("Some repos failed to fetch or clone.")
+            exit_code |= 4
 
     if not args.interactive:
         if 0 < unknown_repo_warning <= len(unknown):
-            error("Error: There are {} unknown repos on github. "
+            error("There are {} unknown repos on github. "
                   "This is more than your limit of {}.",
                   len(unknown),
-                  unknown_repo_warning,
-                  exit_code=2)
+                  unknown_repo_warning)
+            exit_code |= 2
+    return exit_code
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

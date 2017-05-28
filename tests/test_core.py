@@ -20,40 +20,31 @@ class TestURLManipulationCase(unittest.TestCase):
 
 
 class TestTokenCheckCase(unittest.TestCase):
-    @mock.patch('ghbackup.sys.exit')
-    def test_normal(self, mock_exit):
-        ghub = mock.Mock()
-        ghub.user.get.return_value = (200, mock.sentinel.ghub_user)
-        ret = ghbackup.test_token(ghub)
+    def setUp(self):
+        self.ghub = mock.Mock()
+
+    def test_normal(self):
+        self.ghub.user.get.return_value = (200, mock.sentinel.ghub_user)
+        ret = ghbackup.test_token(self.ghub)
         self.assertEqual(ret, mock.sentinel.ghub_user)
-        mock_exit.assert_not_called()
 
-    @mock.patch('ghbackup.sys.exit')
-    def test_failed_auth(self, mock_exit):
-        ghub = mock.Mock()
-        ghub.user.get.return_value = (401, None)
+    def test_failed_auth(self):
+        self.ghub.user.get.return_value = (401, 'marker')
         with self.assertLogs(level='ERROR'):
-            ret = ghbackup.test_token(ghub)
-        mock_exit.assert_called_once_with(1)
+            ret = ghbackup.test_token(self.ghub)
         self.assertIsNone(ret)
 
-    @mock.patch('ghbackup.sys.exit')
-    def test_rate_limited(self, mock_exit):
-        ghub = mock.Mock()
-        ghub.user.get.return_value = (403, None)
+    def test_rate_limited(self):
+        self.ghub.user.get.return_value = (403, 'marker')
         with self.assertLogs(level='ERROR'):
-            ret = ghbackup.test_token(ghub)
-        mock_exit.assert_called_once_with(1)
+            ret = ghbackup.test_token(self.ghub)
         self.assertIsNone(ret)
 
-    @mock.patch('ghbackup.sys.exit')
-    def test_unknown_error(self, mock_exit: mock.Mock):
-        ghub = mock.Mock()
-        ghub.user.get.return_value = (128, 'marker')
+    def test_unknown_error(self):
+        self.ghub.user.get.return_value = (128, 'marker')
         with self.assertLogs(level='ERROR') as lg:
-            ret = ghbackup.test_token(ghub)
+            ret = ghbackup.test_token(self.ghub)
         self.assertIsNone(ret)
-        mock_exit.assert_called_once_with(1)
         self.assertIn(str(128), lg.output[0])
         self.assertIn('marker', lg.output[0])
 
