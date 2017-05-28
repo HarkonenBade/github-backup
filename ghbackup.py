@@ -238,7 +238,12 @@ def main() -> int:
     ghub = GitHub(token=auth)
 
     info("Testing auth token and loading user")
-    user = test_token(ghub)['login']
+    user = test_token(ghub)
+
+    if user is None:
+        return 1
+    else:
+        user = user['login']
 
     repopath = conf_load(conf, 'general', 'repopath')
     if repopath is None:
