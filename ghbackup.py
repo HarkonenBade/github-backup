@@ -75,25 +75,44 @@ def paginate(path: Callable, per_page: int = 30, **kwargs: Any) -> Tuple[int, Li
     return 200, output
 
 
-def test_token(ghub: GitHub) -> Optional[Mapping]:
-    ret, rsp = ghub.user.get()  # type: Tuple[int, Mapping]
-    if ret == 401:
-        error("Failed to authenticate to github. Please check the value of token.")
-    elif ret == 403:
-        error("You have tried to connect too many times with "
-              "an invalid token. Please wait and try again later.")
-    elif ret == 200:
-        return rsp
-    else:
-        error("Access to github returned code {} and response:\n{}", ret, rsp)
-    return None
+class GitHubAuth(object):
+    def __init__(self, token: str) -> None:
+        self.token = token
+        self.ghub = GitHub(token=token)
+        self.user = None
+
+    def test_token(self) -> bool:
+        ret, rsp = self.ghub.user.get()  # type: Tuple[int, Mapping]
+        if ret == 401:
+            error("Failed to authenticate to github. Please check the value of token.")
+        elif ret == 403:
+            error("You have tried to connect too many times with "
+                  "an invalid token. Please wait and try again later.")
+        elif ret == 200:
+            self.user = rsp['login']
+            return True
+        else:
+            error("Access to github returned code {} and response:\n{}", ret, rsp)
+        return False
+
+    def embed_auth_in_url(self, url: str) -> str:
+        if self.user is None:
+            if not self.test_token():
+                return url
+        urlparts = urlp.urlsplit(url)
+        url_netloc = "{}:{}@{}".format(self.user, self.token, urlparts.netloc)
+        return urlp.urlunsplit((urlparts.scheme,
+                                url_netloc,
+                                urlparts.path,
+                                urlparts.query,
+                                urlparts.fragment))
 
 
-def load_repos(ghub: GitHub, only_personal: bool) -> Optional[Mapping[str, Mapping]]:
+def load_repos(auth: GitHubAuth, only_personal: bool) -> Optional[Mapping[str, Mapping]]:
     if only_personal:
-        status, repos = paginate(ghub.user.repos.get, affiliation="owner")
+        status, repos = paginate(auth.ghub.user.repos.get, affiliation="owner")
     else:
-        status, repos = paginate(ghub.user.repos.get)
+        status, repos = paginate(auth.ghub.user.repos.get)
     if status == 200:
         return {repo['name']: repo for repo in repos}
     else:
@@ -113,23 +132,13 @@ def conf_load(conf: Mapping[str, Any], *args: Any, default: Any = None) -> Any:
         return cur
 
 
-def embed_auth_in_url(url: str, user: str, token: str) -> str:
-    urlparts = urlp.urlsplit(url)
-    url_netloc = "{}:{}@{}".format(user, token, urlparts.netloc)
-    return urlp.urlunsplit((urlparts.scheme,
-                            url_netloc,
-                            urlparts.path,
-                            urlparts.query,
-                            urlparts.fragment))
-
-
 def load_refs(repo: Any) -> Mapping[str, str]:
     return {ref.name: ref.commit.hexsha for ref in repo.refs}
 
 
-def update_repo(name: str, repo: Mapping, repopath: str, user: str, token: str) -> bool:
+def update_repo(name: str, repo: Mapping, repopath: str, auth: GitHubAuth) -> bool:
     repo_dir = os.path.join(repopath, name)
-    url = embed_auth_in_url(repo['clone_url'], user, token)
+    url = auth.embed_auth_in_url(repo['clone_url'])
     clone = not os.path.exists(repo_dir)
     try:
         if clone:
@@ -206,7 +215,7 @@ def check_unknown(unknown_repos: List[Mapping]) -> Tuple[Mapping[str, Mapping], 
     return new_repos, new_exclude
 
 
-def gather_args() -> Any:
+def gather_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="A github mirroring tool.")
     parser.add_argument("--conf", default=DEFAULT_CONF_PATH)
     parser.add_argument("--token", default="")
@@ -229,21 +238,17 @@ def main() -> int:
         conf = yaml.safe_load(conf_file)
 
     if args.token != "":
-        auth = args.token
+        token = args.token
     else:
-        auth = conf_load(conf, 'general', 'token')
-        if auth is None:
+        token = conf_load(conf, 'general', 'token')
+        if token is None:
             error("Must either specify auth token on command line or in config.")
             return 1
-    ghub = GitHub(token=auth)
+    auth = GitHubAuth(token)
 
     info("Testing auth token and loading user")
-    user = test_token(ghub)
-
-    if user is None:
+    if not auth.test_token():
         return 1
-    else:
-        user = user['login']
 
     repopath = conf_load(conf, 'general', 'repopath')
     if repopath is None:
@@ -268,7 +273,7 @@ def main() -> int:
     info("{} repos excluded", len(exclude))
 
     info("Loading repo data from github")
-    ghub_repos = load_repos(ghub, only_personal)
+    ghub_repos = load_repos(auth, only_personal)
 
     if ghub_repos is None:
         error("Failed to retrieve repo data from GitHub")
@@ -292,7 +297,7 @@ def main() -> int:
     exit_code = 0
 
     with cf.ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futures = [ex.submit(update_repo, name, repo, repopath, user, auth) for name, repo in conf_repos.items()]
+        futures = [ex.submit(update_repo, name, repo, repopath, auth) for name, repo in conf_repos.items()]
         all_success = all([ftr.result() for ftr in cf.as_completed(futures)])
         if not all_success:
             error("Some repos failed to fetch or clone.")
